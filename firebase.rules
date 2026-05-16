@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isSchoolUser() { return signedIn() && userDoc().data.active == true; }
+    function isAdmin() { return isSchoolUser() && userDoc().data.role in ['Secretaria', 'Coordenação']; }
+
+    match /users/{userId} {
+      allow read: if isSchoolUser() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /occurrences/{occurrenceId} {
+      allow read: if isSchoolUser();
+      allow create: if isSchoolUser();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
